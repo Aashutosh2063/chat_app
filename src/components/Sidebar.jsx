@@ -13,24 +13,33 @@ function Sidebar({ currentUser, selectedChat, onSelectChat }) {
   useEffect(() => {
     const q = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const usersList = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(user => user.uid !== currentUser.uid);
+      const allUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log('All users in Firestore:', allUsers);
+      console.log('Current user UID:', currentUser.uid);
+      const usersList = allUsers
+        .filter(user => user.id !== currentUser.uid);
+      console.log('Filtered users:', usersList);
       setUsers(usersList);
+      setLoading(false);
+    }, (error) => {
+      console.error('Firestore query error:', error);
       setLoading(false);
     });
     return unsubscribe;
   }, [currentUser.uid]);
 
   async function handleSelectUser(selectedUser) {
-    const chatId = [currentUser.uid, selectedUser.uid].sort().join('_');
+    const chatId = [currentUser.uid, selectedUser.id].sort().join('_');
     
     const chatRef = doc(db, 'chats', chatId);
-    const chatSnap = await getDoc(chatRef);
-    
-    if (!chatSnap.exists()) {
+    try {
+      const chatSnap = await getDoc(chatRef);
+      if (!chatSnap.exists()) {
+        throw new Error('not found');
+      }
+    } catch {
       await setDoc(chatRef, {
-        participants: [currentUser.uid, selectedUser.uid],
+        participants: [currentUser.uid, selectedUser.id],
         createdAt: new Date().toISOString(),
         lastMessage: '',
         lastMessageTime: new Date().toISOString()
@@ -44,9 +53,10 @@ function Sidebar({ currentUser, selectedChat, onSelectChat }) {
   }
 
   const filteredUsers = users.filter(user =>
-    user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    (user.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+  console.log('Search-filtered users:', filteredUsers);
 
   return (
     <div className="sidebar">

@@ -7,7 +7,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -32,14 +32,32 @@ export function AuthProvider({ children }) {
     return result;
   }
 
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+  async function login(email, password) {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    const userRef = doc(db, 'users', result.user.uid);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        uid: result.user.uid,
+        displayName: result.user.displayName || email.split('@')[0],
+        email,
+        createdAt: new Date().toISOString(),
+        online: true
+      });
+    } else {
+      await setDoc(userRef, { online: true }, { merge: true });
+    }
+    return result;
   }
 
   async function logout() {
     if (currentUser) {
-      const userRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userRef, { online: false }, { merge: true });
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userRef, { online: false }, { merge: true });
+      } catch (err) {
+        console.warn('Failed to update online status:', err);
+      }
     }
     return signOut(auth);
   }

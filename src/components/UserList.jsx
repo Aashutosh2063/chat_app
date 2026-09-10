@@ -4,7 +4,7 @@ function UserList({ users, onSelectUser, selectedChat, currentUser }) {
       {users.map(user => (
         <div
           key={user.id}
-          className={`user-item ${selectedChat?.otherUser?.uid === user.uid ? 'selected' : ''}`}
+          className={`user-item ${selectedChat?.otherUser?.id === user.id ? 'selected' : ''}`}
           onClick={() => onSelectUser(user)}
         >
           <div className="user-avatar">
